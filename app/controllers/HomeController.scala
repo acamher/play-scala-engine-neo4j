@@ -44,7 +44,7 @@ class HomeController @Inject()(cc: ControllerComponents)(implicit exec: Executio
     //Logger.info("Enviado tick - " + tipo + " - tick connected")
     //val lista: List[String] = List ("Cod1", "Cod3","Cod8")
     val query2: String = request.getQueryString("input_codes").getOrElse(request.toString())
-    val lista: List[String] = query2.split(",").toList
+    val lista: List[String] = query2.split(",").map(_.trim).toList
     val resultado = db.getAsociatepromotions(lista)
     //Ok(views.html.index(resultado._1 + " en " + resultado._2.toString + " milisec"))
     Ok(views.html.result(resultado._1, resultado._2,query2))
