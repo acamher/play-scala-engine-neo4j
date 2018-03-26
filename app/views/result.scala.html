@@ -1,0 +1,35 @@
+
+@(resultado: Vector[com.vector.Promocion], milis: List[String])
+
+@main("Welcome to Play") {
+  <h1>Ejecución Query Neo4j</h1><br>
+Tiempo en milis:
+@milis.mkString(",")<br>
+@for(item <- milis) {
+<br>@item ms
+}
+
+<br><br><br>
+<table>
+  <tr>
+    <th>Promoción</th>
+    <th>Codigos</th>
+    <th>Numero productos</th>
+    <th>Tipo</th>
+    <th>Desc</th>
+    <th>relDB</th>
+  </tr>
+  @for(item <- resultado) {
+  <tr>
+    <td>@item.codpromo</td>
+    <td>@for(cod <- item.codigos) {
+      @cod&nbsp;
+      } </td>
+    <td>@item.numcod</td>
+    <td>@item.tipo</td>
+    <td>@item.desc</td>
+    <td>@item.tipo_rel</td>
+  </tr>
+  }
+</table>
+}
