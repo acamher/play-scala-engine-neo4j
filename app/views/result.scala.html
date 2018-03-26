@@ -1,8 +1,10 @@
 
-@(resultado: Vector[com.vector.Promocion], milis: List[String])
+@(resultado: Vector[com.vector.Promocion], milis: List[String], valores: String)
 
 @main("Welcome to Play") {
   <h1>Ejecución Query Neo4j</h1><br>
+@cabecera(valores)
+<br>
 Tiempo en milis:
 @milis.mkString(",")<br>
 @for(item <- milis) {
