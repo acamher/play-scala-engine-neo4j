@@ -1,13 +1,20 @@
 package com.vector
 
-import org.neo4j.driver.v1._
+import java.util.concurrent.CompletionStage
 
-import scala.concurrent.Future
+import org.neo4j.driver.v1._
+import org.neo4j.driver.v1.types.Node
+
+import scala.concurrent.{ExecutionContext, Future, blocking}
 import play.api.inject.ApplicationLifecycle
+import views.html.defaultpages.error
 
 import scala.collection.JavaConverters._
 import scala.collection.immutable.HashMap
 import scala.collection.mutable
+//import scala.concurrent.java8.FuturesConvertersImpl._
+import scala.compat.java8.FutureConverters._
+import scala.util.{Failure, Success}
 
 
 object bdNeo4j {
@@ -45,8 +52,6 @@ object bdNeo4j {
     }
     list.toList
   }
-
-
 }
 
 
@@ -54,11 +59,11 @@ object bdNeo4j {
 class Neo4j(lifecycle: ApplicationLifecycle){
 
   case class User(name: String, last_name: String, age: Int, city: String)
-  val driver = GraphDatabase.driver(bdNeo4j.url)
-  val session = driver.session
+  val driver = GraphDatabase.driver(bdNeo4j.url, Config.build().withMaxConnectionPoolSize(100).toConfig)
+  //val session = driver.ssession
   lifecycle.addStopHook { () =>
     Future.successful{
-      session.close()
+      //session.close()
       driver.close()
     }
   }
@@ -70,9 +75,9 @@ class Neo4j(lifecycle: ApplicationLifecycle){
 
   def getAsociatepromotions(codigo: Any): (Vector[Promocion], List[String]) = {
 
-
     val script = bdNeo4j.qListPromCodigo(codigo)
     val date = System.currentTimeMillis()
+    val session = driver.session
     val result: StatementResult = session.run(script)
 
     var record_fetch: Vector[Promocion] = Vector()
@@ -99,10 +104,75 @@ class Neo4j(lifecycle: ApplicationLifecycle){
     }else{
       "Ningún acierto"
     }
-    record_fetch ++= promosParcialesAplicables(parcial_promo)
+    record_fetch = promosParcialesAplicables(parcial_promo) ++ record_fetch
     val dur2 = System.currentTimeMillis()
     val durd2 = dur2 - date
+    session.close()
     (record_fetch, List(durd2.toString ))
+  }
+
+  def getAsociatepromotionsAsync (codigo: Any, bc: ExecutionContext): Future[(Vector[Promocion], List[String])] = {
+    //implicit val ec: ExecutionContext = bc
+    val script = bdNeo4j.qListPromCodigo(codigo)
+    val session = driver.session
+    val cursorStage: CompletionStage[StatementResultCursor]  = session.runAsync(script)
+
+    val result: CompletionStage[Record] = cursorStage.thenCompose(f => f.nextAsync())
+
+      val salida: CompletionStage[(Vector[Promocion], List[String])] = result.thenApply( (record: Record) => {
+      val record_fetch = Vector(new Promocion(record.get("a").asString(), record.get("b").asString(), record.get("c").asInt(), record.get("d").asString(), record.get("e").asString(), List(record.get("f").asString())))
+      //println (" Procesando CompletionStage--- de " + date.toString + " en " + durd2.toString)
+      session.closeAsync()
+      (record_fetch, List(2.toString))
+    })
+    toScala(salida)
+
+  }
+
+  def getAsociatepromotionsAsync1 (codigo: Any, bc: ExecutionContext): Future[(Vector[Promocion], List[String])] = {
+    implicit val ec: ExecutionContext = bc
+    val script = bdNeo4j.qListPromCodigo(codigo)
+
+    val session = driver.session
+    val cursorStage: CompletionStage[StatementResultCursor]  = session.runAsync(script)
+    val cursorFuture = toScala(cursorStage)
+
+    //val result = cursorFuture.foreach(r => r.nextAsync())
+    val result1 = cursorFuture.flatMap(f => toScala(f.listAsync()))(bc)
+
+    val salida = result1.map {
+      case result3 =>
+        val result = result3.listIterator()
+
+        var record_fetch: Vector[Promocion] = Vector()
+        var indice_promos = new scala.collection.mutable.HashMap[String, Int]
+        var parcial_promo: Vector[Promocion] = Vector()
+        var indice_parcial_promos = new scala.collection.mutable.HashMap[String, Int]
+        if (result.hasNext()) {
+          while (result.hasNext()) {
+            val record = result.next()
+            val rec_promo = new Promocion(record.get("a").asString(), record.get("b").asString(), record.get("c").asInt(), record.get("d").asString(), record.get("e").asString(), List(record.get("f").asString()))
+            if (rec_promo.numcod == 1) {
+              record_fetch = record_fetch :+ rec_promo
+              indice_promos += rec_promo.codpromo -> (record_fetch.length - 1)
+            } else {
+              if (indice_parcial_promos.exists(_._1 == rec_promo.codpromo)) {
+                var promotmp = parcial_promo(indice_parcial_promos(rec_promo.codpromo))
+                promotmp.codigos = promotmp.codigos ::: rec_promo.codigos
+              } else {
+                parcial_promo = parcial_promo :+ rec_promo
+                indice_parcial_promos += rec_promo.codpromo -> (parcial_promo.length - 1)
+              }
+            }
+          }
+        } else {
+          "Ningún acierto"
+        }
+        record_fetch ++= promosParcialesAplicables(parcial_promo)
+        session.closeAsync()
+        (record_fetch, List(2.toString))
+    }(bc)
+    salida
   }
 
   def insertRecord(user: User): Int = {

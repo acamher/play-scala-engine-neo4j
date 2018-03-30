@@ -12,6 +12,8 @@ libraryDependencies += "org.scalatestplus.play" %% "scalatestplus-play" % "3.1.2
 
 // https://mvnrepository.com/artifact/org.neo4j.driver/neo4j-java-driver
 libraryDependencies += "org.neo4j.driver" % "neo4j-java-driver" % "1.5.1"
+// https://mvnrepository.com/artifact/org.scala-lang.modules/scala-java8-compat
+libraryDependencies += "org.scala-lang.modules" %% "scala-java8-compat" % "0.8.0"
 
 // Adds additional packages into Twirl
 //TwirlKeys.templateImports += "com.vector.controllers._"

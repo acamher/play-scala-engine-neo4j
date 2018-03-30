@@ -6,6 +6,7 @@
 # An example controller showing a sample home page
 GET     /                           controllers.HomeController.index
 GET     /autogenerar                controllers.HomeController.autogencodigos
+GET     /autogenerarAsync           controllers.HomeController.autogencodigosAsync
 
 # Services Neo4j
 GET     /getPromo            controllers.HomeController.getServicePromo
